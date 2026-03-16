@@ -160,20 +160,48 @@ export async function getTokenHolders({ mint, limit = 20 }) {
     const kwHolders = Array.isArray(kwData) ? kwData : (kwData?.holders || kwData?.data || []);
 
     const smartWalletMap = new Map(smartWallets.map((w) => [w.address, w]));
-    for (const h of kwHolders) {
+    await Promise.all(kwHolders.map(async (h) => {
       const addr = h.address || h.wallet;
       const wallet = smartWalletMap.get(addr);
-      if (!wallet) continue;
+      if (!wallet) return;
       const pct = totalSupply ? parseFloat(((Number(h.amount) / totalSupply) * 100).toFixed(4)) : null;
+
+      // Fetch PnL summary for this wallet + token
+      let pnl = null;
+      try {
+        const pnlRes = await fetch(`${DATAPI_BASE}/pnl-positions?address=${addr}&assetId=${mint}`);
+        if (pnlRes.ok) {
+          const pnlData = await pnlRes.json();
+          const pos = pnlData?.[addr]?.tokenPositions?.[0];
+          if (pos) pnl = {
+            balance: pos.balance,
+            balance_usd: pos.balanceValue,
+            avg_cost: pos.averageCost,
+            realized_pnl: pos.realizedPnl,
+            unrealized_pnl: pos.unrealizedPnl,
+            total_pnl: pos.totalPnl,
+            total_pnl_pct: pos.totalPnlPercentage,
+            buys: pos.totalBuys,
+            sells: pos.totalSells,
+            wins: pos.totalWins,
+            bought_value: pos.boughtValue,
+            sold_value: pos.soldValue,
+            first_active: pos.firstActiveTime,
+            last_active: pos.lastActiveTime,
+            holding_days: pos.holdingPeriodInSeconds ? Math.round(pos.holdingPeriodInSeconds / 86400) : null,
+          };
+        }
+      } catch { /* ignore */ }
+
       smartWalletsHolding.push({
         name: wallet.name,
         category: wallet.category,
         address: addr,
-        amount: h.amount,
         pct,
         sol_balance: h.solBalanceDisplay ?? h.solBalance,
+        pnl,
       });
-    }
+    }));
   }
 
   return {
