@@ -79,6 +79,9 @@ MANAGEMENT CYCLE
    - INSTRUCTION OVERRIDE: If instruction condition NOT YET MET → hold, regardless of other signals.
    - If no instruction: BIAS = STAY. Only close if yield died, pool collapsed, or extreme loss.
 3. If closing: swap base tokens to SOL.
+4. After any close — recalibrate management interval (MANDATORY):
+   - No positions remaining → update_config management.managementIntervalMin = 10 (reset to default)
+   - Positions still open → keep current interval (already set by deploy volatility)
 
 REPORT FORMAT (Strictly follow this for each position):
 **[PAIR]** | Age: [X]m | Fees: $[X] | PnL: [X]%
